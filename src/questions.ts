@@ -1,6 +1,7 @@
 import type { DifficultyId, Question, StemTopicId, TopicId } from "./types";
 import * as D from "./diagramSvgs";
 import * as B from "./question-banks";
+import * as X from "./question-banks-extra";
 import { mulberry32, shuffle } from "./rng";
 
 function expl(detailed: string, gentler: string): Pick<Question, "explanationDetailed" | "explanationGentler"> {
@@ -38,14 +39,18 @@ const KANJI_READ_HARD_PROMPTS = [
   (k: string, m: string) => `次の熟語「${k}」＝${m}。読みは？`,
 ];
 
-// ─── 漢字・語彙（8パターン）─────────────────────────────────
+function allKanji(rng: () => number) {
+  return pickOne([...B.KANJI_ITEMS, ...X.KANJI_EXTRA], rng);
+}
+
+// ─── 漢字・語彙（12パターン）─────────────────────────────────
 
 function qKanji(seed: number, difficulty: DifficultyId): Question {
   const rng = mulberry32(seed);
-  const mode = Math.floor(rng() * 8);
+  const mode = Math.floor(rng() * 12);
 
   if (mode === 0) {
-    const item = pickOne(B.KANJI_ITEMS, rng);
+    const item = allKanji(rng);
     const { choices, correctIndex } = makeChoices(item.reading, item.wrongReadings, rng);
     const promptFn =
       difficulty === "hard"
@@ -69,7 +74,7 @@ function qKanji(seed: number, difficulty: DifficultyId): Question {
   }
 
   if (mode === 1) {
-    const item = pickOne(B.JUKUGO_ITEMS, rng);
+    const item = pickOne([...B.JUKUGO_ITEMS, ...X.JUKUGO_EXTRA], rng);
     const { choices, correctIndex } = makeChoices(item.meaning, item.wrongMeanings, rng);
     const prompts = [
       `四字熟語「${item.word}」の意味として正しいものは？`,
@@ -92,7 +97,7 @@ function qKanji(seed: number, difficulty: DifficultyId): Question {
   }
 
   if (mode === 2) {
-    const item = pickOne(B.HOMOPHONE_ITEMS, rng);
+    const item = pickOne([...B.HOMOPHONE_ITEMS, ...X.HOMOPHONE_EXTRA], rng);
     const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
     const prompts = [
       `次の文の（　）に入る言葉として最も適切なものは？\n\n${item.context}`,
@@ -139,8 +144,9 @@ function qKanji(seed: number, difficulty: DifficultyId): Question {
   }
 
   if (mode === 4) {
-    const item = pickOne(B.KANJI_ITEMS, rng);
-    const { choices, correctIndex } = makeChoices(item.meaning, shuffle(B.KANJI_ITEMS, rng).map((x) => x.meaning).slice(0, 6), rng);
+    const item = allKanji(rng);
+    const pool = [...B.KANJI_ITEMS, ...X.KANJI_EXTRA];
+    const { choices, correctIndex } = makeChoices(item.meaning, shuffle(pool, rng).map((x) => x.meaning).slice(0, 8), rng);
     const prompts = [
       `「${item.kanji}（${item.reading}）」の意味として正しいものは？`,
       `次の言葉の意味は？\n\n${item.kanji}`,
@@ -201,33 +207,95 @@ function qKanji(seed: number, difficulty: DifficultyId): Question {
     };
   }
 
-  const item = pickOne(B.KANJI_ITEMS, rng);
-  const other = pickOne(B.KANJI_ITEMS.filter((x) => x.kanji !== item.kanji), rng);
-  const correct = item.kanji;
-  const { choices, correctIndex } = makeChoices(
-    correct,
-    [other.kanji, pickOne(B.KANJI_ITEMS, rng).kanji, pickOne(B.KANJI_ITEMS, rng).kanji],
-    rng
-  );
+  if (mode === 7) {
+    const item = allKanji(rng);
+    const pool = [...B.KANJI_ITEMS, ...X.KANJI_EXTRA];
+    const other = pickOne(pool.filter((x) => x.kanji !== item.kanji), rng);
+    const correct = item.kanji;
+    const { choices, correctIndex } = makeChoices(
+      correct,
+      [other.kanji, pickOne(pool, rng).kanji, pickOne(pool, rng).kanji],
+      rng
+    );
+    return {
+      id: `K-${seed}`,
+      topic: "kanji",
+      prompt:
+        difficulty === "hard"
+          ? `意味「${item.meaning}」を表す漢字はどれ？（読みは「${item.reading}」）`
+          : `意味「${item.meaning}」を表す漢字はどれ？`,
+      choices,
+      correctIndex,
+      hint: "意味から漢字の形を思い出そう。",
+      ...expl(`正解は「${item.kanji}」です。\n\n${item.meaning} → ${item.kanji}（${item.reading}）。`, `意味から漢字を選ぶ。\n\n→ ${item.kanji}。`),
+      ...win(`当たり！${item.kanji}（${item.reading}）。`),
+    };
+  }
+
+  if (mode === 8) {
+    const item = pickOne(X.PROVERB_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.meaning, item.wrongMeanings, rng);
+    return {
+      id: `K-${seed}`,
+      topic: "kanji",
+      prompt: pickOne([`ことわざ「${item.proverb}」の意味は？`, `「${item.proverb}」が教えてくれることは？`], rng),
+      choices,
+      correctIndex,
+      hint: "ことわざは短い文で教訓を伝える。",
+      ...expl(`正解は「${item.meaning}」です。`, `「${item.proverb}」→ ${item.meaning}。`),
+      ...win(`当たり！ことわざの意味を理解できました。`),
+    };
+  }
+
+  if (mode === 9) {
+    const item = pickOne(X.OKURIGANA_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
+    return {
+      id: `K-${seed}`,
+      topic: "kanji",
+      prompt: `送り仮名問題：${item.word}（　）`,
+      choices,
+      correctIndex,
+      hint: "送り仮名は読みを助ける。語尾の形に注目。",
+      ...expl(`正解は「${item.correct}」です。\n\n${item.word.replace("（　）", item.correct)}`, `送り仮名を正しく書く。\n\n→ ${item.correct}。`),
+      ...win(`当たり！送り仮名は「${item.correct}」。`),
+    };
+  }
+
+  if (mode === 10) {
+    const item = pickOne(X.ANTONYM_PAIRS, rng);
+    const { choices, correctIndex } = makeChoices(item.antonym, item.wrong, rng);
+    return {
+      id: `K-${seed}`,
+      topic: "kanji",
+      prompt: `「${item.word}」の対義語（反対の意味）として最も適切なものは？`,
+      choices,
+      correctIndex,
+      hint: "意味が正反対になる語を選ぼう。",
+      ...expl(`正解は「${item.antonym}」です。\n\n${item.word} ↔ ${item.antonym}。`, `対義語ペアを覚える。\n\n→ ${item.antonym}。`),
+      ...win(`当たり！「${item.word}」の対義語は「${item.antonym}」。`),
+    };
+  }
+
+  const item = pickOne(X.JUKUGO_EXTRA, rng);
+  const { choices, correctIndex } = makeChoices(item.word, shuffle([...B.JUKUGO_ITEMS, ...X.JUKUGO_EXTRA], rng).map((j) => j.word).filter((w) => w !== item.word).slice(0, 6), rng);
   return {
     id: `K-${seed}`,
     topic: "kanji",
-    prompt: difficulty === "hard"
-      ? `意味「${item.meaning}」を表す漢字はどれ？（読みは「${item.reading}」）`
-      : `意味「${item.meaning}」を表す漢字はどれ？`,
+    prompt: `意味「${item.meaning}」を表す四字熟語はどれ？`,
     choices,
     correctIndex,
-    hint: "意味から漢字の形を思い出そう。",
-    ...expl(`正解は「${item.kanji}」です。\n\n${item.meaning} → ${item.kanji}（${item.reading}）。`, `意味から漢字を選ぶ問題。\n\n${item.meaning} → ${item.kanji}。`),
-    ...win(`当たり！${item.kanji}（${item.reading}）。`),
+    hint: "意味から四字熟語の形を思い出そう。",
+    ...expl(`正解は「${item.word}」です。`, `意味 → 四字熟語。\n\n→ ${item.word}。`),
+    ...win(`当たり！「${item.word}」。`),
   };
 }
 
-// ─── 文法（8パターン）─────────────────────────────────
+// ─── 文法（12パターン）─────────────────────────────────
 
 function qGrammar(seed: number, difficulty: DifficultyId): Question {
   const rng = mulberry32(seed + 401);
-  const mode = Math.floor(rng() * 8);
+  const mode = Math.floor(rng() * 12);
 
   if (mode === 0) {
     const item = pickOne(B.GRAMMAR_POS, rng);
@@ -342,31 +410,95 @@ function qGrammar(seed: number, difficulty: DifficultyId): Question {
     };
   }
 
-  const adjVsNoun = [
-    { word: "静かだ", type: "形容動詞", wrong: ["形容詞", "名詞", "副詞"] },
-    { word: "美しい", type: "形容詞", wrong: ["形容動詞", "副詞", "名詞"] },
-    { word: "きれいな", type: "連体詞（形容動詞の連体形）", wrong: ["形容詞", "副詞", "助詞"] },
-    { word: "幸福な", type: "連体詞", wrong: ["名詞", "副詞", "動詞"] },
-  ];
-  const item = pickOne(adjVsNoun, rng);
-  const { choices, correctIndex } = makeChoices(item.type, item.wrong, rng);
-  return {
-    id: `G-${seed}`,
-    topic: "grammar",
-    prompt: `「${item.word}」の品詞（文法的性質）として最も適切なものは？`,
-    choices,
-    correctIndex,
-    hint: "「〜だ／〜い／〜な」の語尾に注目。",
-    ...expl(`正解は「${item.type}」です。`, `語尾の形で品詞を見分ける。\n\n「${item.word}」→ ${item.type}。`),
-    ...win(`当たり！「${item.word}」は ${item.type}。`),
-  };
+  if (mode === 7) {
+    const item = pickOne(X.OBJECT_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
+    return {
+      id: `G-${seed}`,
+      topic: "grammar",
+      prompt: pickOne([`「${item.sentence}」の目的語はどれ？`, `目的語問題：${item.sentence}`], rng),
+      choices,
+      correctIndex,
+      hint: "「何を／誰を + 動詞？」に答える部分。",
+      ...expl(`正解は「${item.correct}」です。\n\n動作の対象が目的語。`, `述語を見つけて「何を？」→ ${item.correct}。`),
+      ...win(`当たり！目的語は「${item.correct}」。`),
+    };
+  }
+
+  if (mode === 8) {
+    const item = pickOne(X.SENTENCE_TYPE_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.type, item.wrong, rng);
+    return {
+      id: `G-${seed}`,
+      topic: "grammar",
+      prompt: `「${item.sentence}」はどんな文の種類？`,
+      choices,
+      correctIndex,
+      hint: "語尾・語調（？／！／なさい／ない）に注目。",
+      ...expl(`正解は「${item.type}」です。`, `文の種類＝語尾と働き。\n\n→ ${item.type}。`),
+      ...win(`当たり！${item.type}ですね。`),
+    };
+  }
+
+  if (mode === 9) {
+    const item = pickOne(X.CONNECTOR_CONTEXT, rng);
+    const { choices, correctIndex } = makeChoices(item.connector, item.wrong, rng);
+    return {
+      id: `G-${seed}`,
+      topic: "grammar",
+      prompt: `空欄に入る接続詞は？\n\n${item.before}（　）${item.after}`,
+      choices,
+      correctIndex,
+      hint: "前後の関係（逆接・因果・追加）を考えよう。",
+      ...expl(`正解は「${item.connector}」です。`, `前後の関係から接続詞を選ぶ。\n\n→ ${item.connector}。`),
+      ...win(`当たり！接続詞は「${item.connector}」。`),
+    };
+  }
+
+  if (mode === 10) {
+    const item = pickOne(X.TEINEI_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.teinei, item.wrong, rng);
+    return {
+      id: `G-${seed}`,
+      topic: "grammar",
+      prompt: `「${item.plain}」の丁寧語（です・ます調）として正しいものは？`,
+      choices,
+      correctIndex,
+      hint: "語尾を「ます形」に変えよう。",
+      ...expl(`正解は「${item.teinei}」です。`, `丁寧語：${item.plain} → ${item.teinei}。`),
+      ...win(`当たり！丁寧語は「${item.teinei}」。`),
+    };
+  }
+
+  if (mode === 11) {
+    const adjVsNoun = [
+      { word: "静かだ", type: "形容動詞", wrong: ["形容詞", "名詞", "副詞"] },
+      { word: "美しい", type: "形容詞", wrong: ["形容動詞", "副詞", "名詞"] },
+      { word: "きれいな", type: "連体詞", wrong: ["形容詞", "副詞", "助詞"] },
+      { word: "幸福な", type: "連体詞", wrong: ["名詞", "副詞", "動詞"] },
+    ];
+    const item = pickOne(adjVsNoun, rng);
+    const { choices, correctIndex } = makeChoices(item.type, item.wrong, rng);
+    return {
+      id: `G-${seed}`,
+      topic: "grammar",
+      prompt: `「${item.word}」の品詞として最も適切なものは？`,
+      choices,
+      correctIndex,
+      hint: "「〜だ／〜い／〜な」の語尾に注目。",
+      ...expl(`正解は「${item.type}」です。`, `語尾の形で品詞を見分ける。\n\n→ ${item.type}。`),
+      ...win(`当たり！「${item.word}」は ${item.type}。`),
+    };
+  }
+
+  return qGrammar(seed + 99, difficulty);
 }
 
-// ─── 古典（7パターン）─────────────────────────────────
+// ─── 古典（12パターン）─────────────────────────────────
 
 function qClassic(seed: number, _difficulty: DifficultyId): Question {
   const rng = mulberry32(seed + 701);
-  const mode = Math.floor(rng() * 7);
+  const mode = Math.floor(rng() * 12);
 
   if (mode === 0) {
     const item = pickOne(B.JODOU_ITEMS, rng);
@@ -476,34 +608,110 @@ function qClassic(seed: number, _difficulty: DifficultyId): Question {
     };
   }
 
-  const authors = [
-    { author: "清少納言", work: "枕草子", wrong: ["紫式部", "藤原道長", "和泉式部"] },
-    { author: "紫式部", work: "源氏物語", wrong: ["清少納言", "和泉式部", "藤原道長"] },
-    { author: "和泉式部", work: "和泉式部集", wrong: ["紫式部", "清少納言", "小野小町"] },
-    { author: "菅原孝標女", work: "更級日記", wrong: ["紫式部", "清少納言", "和泉式部"] },
-  ];
-  const item = pickOne(authors, rng);
-  const { choices, correctIndex } = makeChoices(item.work, item.wrong, rng);
+  if (mode === 6) {
+    const authors = [
+      { author: "清少納言", work: "枕草子", wrong: ["紫式部", "藤原道長", "和泉式部"] },
+      { author: "紫式部", work: "源氏物語", wrong: ["清少納言", "和泉式部", "藤原道長"] },
+      { author: "和泉式部", work: "和泉式部集", wrong: ["紫式部", "清少納言", "小野小町"] },
+      { author: "菅原孝標女", work: "更級日記", wrong: ["紫式部", "清少納言", "和泉式部"] },
+    ];
+    const item = pickOne(authors, rng);
+    const { choices, correctIndex } = makeChoices(item.work, item.wrong, rng);
+    return {
+      id: `C-${seed}`,
+      topic: "classic",
+      prompt: `${item.author}の代表作は？`,
+      choices,
+      correctIndex,
+      hint: "作者と作品名はセットで覚えよう。",
+      ...expl(`正解は「${item.work}」です。`, `${item.author} → ${item.work}。`),
+      ...win(`当たり！${item.author}の${item.work}。`),
+    };
+  }
+
+  if (mode === 7) {
+    const item = pickOne(X.WAKA_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.theme, item.wrong, rng);
+    return {
+      id: `C-${seed}`,
+      topic: "classic",
+      prompt: `次の和歌が表すテーマ（心情・内容）として最も適切なものは？\n\n「${item.waka}」`,
+      choices,
+      correctIndex,
+      hint: "和歌は短い中に感情や情景を込める。",
+      ...expl(`正解は「${item.theme}」です。`, `和歌のテーマを読み取る。\n\n→ ${item.theme}。`),
+      ...win(`当たり！テーマは「${item.theme}」。`),
+    };
+  }
+
+  if (mode === 8) {
+    const item = pickOne(X.LITERARY_HISTORY, rng);
+    const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
+    return {
+      id: `C-${seed}`,
+      topic: "classic",
+      prompt: item.question,
+      choices,
+      correctIndex,
+      hint: "文学史・作者・作品名を整理しよう。",
+      ...expl(`正解は「${item.correct}」です。`, `文学史の基本問題。\n\n→ ${item.correct}。`),
+      ...win(`当たり！${item.correct}。`),
+    };
+  }
+
+  if (mode === 9) {
+    const item = pickOne(X.CLASSICAL_EXTRA, rng);
+    const { choices, correctIndex } = makeChoices(item.modern, item.wrong, rng);
+    return {
+      id: `C-${seed}`,
+      topic: "classic",
+      prompt: `古典語「${item.line}」の意味は？`,
+      choices,
+      correctIndex,
+      hint: "語句リストを思い出そう。",
+      ...expl(`正解は「${item.modern}」です。`, `「${item.line}」→ ${item.modern}。`),
+      ...win(`当たり！「${item.line}」→ ${item.modern}。`),
+    };
+  }
+
+  if (mode === 10) {
+    const item = pickOne(X.KANBUN_EXTRA, rng);
+    const { choices, correctIndex } = makeChoices(item.reading, item.wrong, rng);
+    return {
+      id: `C-${seed}`,
+      topic: "classic",
+      prompt: `漢文「${item.text}」の読み方として正しいものは？`,
+      choices,
+      correctIndex,
+      hint: "返り点と語順に注意。",
+      ...expl(`正解は「${item.reading}」です。`, `→「${item.reading}」。`),
+      ...win(`当たり！漢文の読み「${item.reading}」。`),
+    };
+  }
+
+  const item = pickOne([...B.CLASSICAL_WORDS, ...X.CLASSICAL_EXTRA], rng);
+  const pool = [...B.CLASSICAL_WORDS, ...X.CLASSICAL_EXTRA].filter((x) => x.line !== item.line);
+  const { choices, correctIndex } = makeChoices(item.line, shuffle(pool, rng).map((x) => x.line).slice(0, 6), rng);
   return {
     id: `C-${seed}`,
     topic: "classic",
-    prompt: `${item.author}の代表作は？`,
+    prompt: `現代語「${item.modern}」に対応する古典語はどれ？`,
     choices,
     correctIndex,
-    hint: "作者と作品名はセットで覚えよう。",
-    ...expl(`正解は「${item.work}」です。\n\n${item.author}＝${item.work}。`, `${item.author} → ${item.work}。`),
-    ...win(`当たり！${item.author}の${item.work}。`),
+    hint: "現代語から古典語を逆引きしよう。",
+    ...expl(`正解は「${item.line}」です。`, `「${item.modern}」→「${item.line}」。`),
+    ...win(`当たり！「${item.modern}」→「${item.line}」。`),
   };
 }
 
-// ─── 読解（8パターン）─────────────────────────────────
+// ─── 読解（12パターン）─────────────────────────────────
 
 function qReading(seed: number, _difficulty: DifficultyId): Question {
   const rng = mulberry32(seed + 1103);
-  const mode = Math.floor(rng() * 8);
+  const mode = Math.floor(rng() * 12);
 
   if (mode === 0) {
-    const item = pickOne(B.PARAGRAPH_SUMMARY, rng);
+    const item = pickOne([...B.PARAGRAPH_SUMMARY, ...X.PARAGRAPH_EXTRA], rng);
     const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
     const prompts = [
       `次の段落の内容として最も適切なものは？\n\n「${item.passage}」`,
@@ -616,6 +824,12 @@ function qReading(seed: number, _difficulty: DifficultyId): Question {
         correct: "最近は若者が戻り始めた",
         wrong: ["人口が減り続けた", "若者はいない", "町が消えた"],
       },
+      {
+        passage: "読書は楽しい。一方、読みすぎて目が疲れることもある。",
+        question: "「一方」の後で述べられていることは？",
+        correct: "読みすぎて目が疲れることもある",
+        wrong: ["読書は楽しくない", "目は疲れない", "読書をやめた"],
+      },
     ];
     const item = pickOne(items, rng);
     const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
@@ -626,40 +840,93 @@ function qReading(seed: number, _difficulty: DifficultyId): Question {
       choices,
       correctIndex,
       hint: "接続詞の後ろを重点的に読もう。",
-      ...expl(`正解は「${item.correct}」です。`, `接続詞の後＝筆者の焦点。\n\n→ ${item.correct}。`),
+      ...expl(`正解は「${item.correct}」です。`, `接続詞の後＝焦点。\n\n→ ${item.correct}。`),
       ...win(`当たり！接続詞の後を読み取れました。`),
     };
   }
 
-  const toneItems = [
-    {
-      passage: "ああ、なんと美しい花だろう。春の訪れを感じさせる香りが漂っている。",
-      correct: "美しさへの感動・賛美",
-      wrong: ["悲しみ", "怒り", "恐怖"],
-    },
-    {
-      passage: "彼の態度は実に遺憾である。約束を破るなど、信頼に値しない。",
-      correct: "不満・批判",
-      wrong: ["感動", "喜び", "中立"],
-    },
-    {
-      passage: "もう二度と、あの日のような失敗は繰り返したくない。",
-      correct: "後悔・決意",
-      wrong: ["喜び", "羨望", "軽蔑"],
-    },
-  ];
-  const item = pickOne(toneItems, rng);
-  const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
-  return {
-    id: `R-${seed}`,
-    topic: "reading",
-    prompt: `次の段落の筆者の気持ち（トーン）に最も近いものは？\n\n「${item.passage}」`,
-    choices,
-    correctIndex,
-    hint: "語句のニュアンス（美しい／遺憾／繰り返したくない）に注目。",
-    ...expl(`正解は「${item.correct}」です。`, `語句から感情を読み取る。\n\n→ ${item.correct}。`),
-    ...win(`当たり！筆者の気持ちは「${item.correct}」。`),
-  };
+  if (mode === 7) {
+    const toneItems = [
+      { passage: "ああ、なんと美しい花だろう。春の訪れを感じさせる香りが漂っている。", correct: "美しさへの感動・賛美", wrong: ["悲しみ", "怒り", "恐怖"] },
+      { passage: "彼の態度は実に遺憾である。約束を破るなど、信頼に値しない。", correct: "不満・批判", wrong: ["感動", "喜び", "中立"] },
+      { passage: "もう二度と、あの日のような失敗は繰り返したくない。", correct: "後悔・決意", wrong: ["喜び", "羨望", "軽蔑"] },
+      { passage: "本当にありがたい。こんな支援があってこそ、続けられた。", correct: "感謝・喜び", wrong: ["怒り", "失望", "無関心"] },
+    ];
+    const item = pickOne(toneItems, rng);
+    const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
+    return {
+      id: `R-${seed}`,
+      topic: "reading",
+      prompt: `次の段落の筆者の気持ち（トーン）に最も近いものは？\n\n「${item.passage}」`,
+      choices,
+      correctIndex,
+      hint: "語句のニュアンスに注目。",
+      ...expl(`正解は「${item.correct}」です。`, `語句から感情を読み取る。\n\n→ ${item.correct}。`),
+      ...win(`当たり！筆者の気持ちは「${item.correct}」。`),
+    };
+  }
+
+  if (mode === 8) {
+    const item = pickOne(X.KEYWORD_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.keyword, item.wrong, rng);
+    return {
+      id: `R-${seed}`,
+      topic: "reading",
+      prompt: `次の段落のキーワード（中心語）として最も重要なものは？\n\n「${item.passage}」`,
+      choices,
+      correctIndex,
+      hint: "段落の主張に直結する語を選ぼう。",
+      ...expl(`正解は「${item.keyword}」です。`, `段落の核心語。\n\n→ ${item.keyword}。`),
+      ...win(`当たり！キーワードは「${item.keyword}」。`),
+    };
+  }
+
+  if (mode === 9) {
+    const item = pickOne(X.WRONG_SUMMARY_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.wrongChoice, item.wrong, rng);
+    return {
+      id: `R-${seed}`,
+      topic: "reading",
+      prompt: `次の段落の内容として【誤っている】ものは？\n\n「${item.passage}」`,
+      choices,
+      correctIndex,
+      hint: "段落に書かれていない・反する選択肢を探そう。",
+      ...expl(`正解は「${item.wrongChoice}」です。\n\nこれは段落の内容と合いません。`, `誤りの選択肢を見つける。\n\n→ ${item.wrongChoice}。`),
+      ...win(`当たり！誤っているのは「${item.wrongChoice}」。`),
+    };
+  }
+
+  if (mode === 10) {
+    const item = pickOne(X.RHETORIC_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.type, item.wrong, rng);
+    return {
+      id: `R-${seed}`,
+      topic: "reading",
+      prompt: `「${item.sentence}」に使われている表現技法は？`,
+      choices,
+      correctIndex,
+      hint: "比喩・擬人・反復・倒置などを区別しよう。",
+      ...expl(`正解は「${item.type}」です。`, `表現技法を見分ける。\n\n→ ${item.type}。`),
+      ...win(`当たり！表現は「${item.type}」。`),
+    };
+  }
+
+  if (mode === 11) {
+    const item = pickOne(X.INFERENCE_ITEMS, rng);
+    const { choices, correctIndex } = makeChoices(item.correct, item.wrong, rng);
+    return {
+      id: `R-${seed}`,
+      topic: "reading",
+      prompt: `次の記述から読み取れることとして最も適切なものは？\n\n「${item.passage}」`,
+      choices,
+      correctIndex,
+      hint: "書かれていないことも、行動から推測できる。",
+      ...expl(`正解は「${item.correct}」です。`, `記述から推測する。\n\n→ ${item.correct}。`),
+      ...win(`当たり！推測は「${item.correct}」。`),
+    };
+  }
+
+  return qReading(seed + 77, _difficulty);
 }
 
 const STEM_TOPICS: StemTopicId[] = ["kanji", "grammar", "classic", "reading"];

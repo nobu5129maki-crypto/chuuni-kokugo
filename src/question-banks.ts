@@ -102,6 +102,8 @@ export const KANJI_IN_CONTEXT: { sentence: string; correct: string; wrong: strin
   { sentence: "（　）から本質が見えた。", correct: "洞察", wrong: ["洞察", "動察", "同察"] },
   { sentence: "発言に（　）があった。", correct: "矛盾", wrong: ["矛順", "務順", "防順"] },
   { sentence: "（　）を用いた表現だ。", correct: "比喩", wrong: ["非喩", "比諭", "被喩"] },
+  { sentence: "議論に（　）を唱えた。", correct: "異論", wrong: ["異議", "一致", "賛成"] },
+  { sentence: "目立った（　）が表れた。", correct: "変化", wrong: ["変革", "変遷", "変換"] },
 ];
 
 export const GRAMMAR_POS: PosItem[] = [
