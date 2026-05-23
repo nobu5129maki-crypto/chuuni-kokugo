@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kokugo Challenge icon">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c1220"/>
+      <stop offset="55%" stop-color="#141b2d"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="45%" stop-color="#c4b5fd"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="frameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff7ed"/>
+      <stop offset="40%" stop-color="#fdba74"/>
+      <stop offset="100%" stop-color="#fb923c"/>
+    </linearGradient>
+    <linearGradient id="bookGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="45%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)"/>
+  <rect width="512" height="512" rx="108" fill="url(#glow)"/>
+
+  <circle cx="256" cy="248" r="188" fill="none" stroke="url(#ringGrad)" stroke-width="5" opacity="0.38"/>
+  <circle cx="256" cy="248" r="156" fill="none" stroke="url(#ringGrad)" stroke-width="2.5" opacity="0.22"/>
+
+  <g filter="url(#softShadow)">
+    <path
+      d="M128 362 C190 332 256 322 256 322 C256 322 322 332 384 362 L384 398 C322 378 256 368 256 368 C256 368 190 378 128 398 Z"
+      fill="url(#bookGrad)"
+      opacity="0.95"
+    />
+    <path d="M256 322 L256 392" stroke="#38bdf8" stroke-width="2.5" opacity="0.35"/>
+    <path d="M168 350 L344 350" stroke="#64748b" stroke-width="1.5" opacity="0.35"/>
+    <path d="M148 378 L364 378" stroke="#64748b" stroke-width="1.5" opacity="0.25"/>
+  </g>
+
+  <g filter="url(#softShadow)" transform="translate(256 238)">
+    <rect
+      x="-108"
+      y="-118"
+      width="216"
+      height="196"
+      rx="18"
+      fill="none"
+      stroke="url(#frameGrad)"
+      stroke-width="18"
+      stroke-linejoin="round"
+    />
+    <circle cx="0" cy="8" r="46" fill="none" stroke="url(#frameGrad)" stroke-width="14"/>
+    <line x1="-52" y1="8" x2="52" y2="8" stroke="url(#frameGrad)" stroke-width="12" stroke-linecap="round"/>
+  </g>
+
+  <path
+    d="M332 118 L332 198 L348 184 L364 198 L364 118 Z"
+    fill="#f97316"
+    opacity="0.92"
+  />
+  <path
+    d="M332 118 L332 198 L348 184 L364 198 L364 118 Z"
+    fill="none"
+    stroke="#fff7ed"
+    stroke-width="2"
+    opacity="0.35"
+  />
+
+  <g fill="#fde68a" opacity="0.95">
+    <path d="M148 132 L154 148 L170 154 L154 160 L148 176 L142 160 L126 154 L142 148 Z"/>
+  </g>
+  <circle cx="392" cy="156" r="4" fill="#7dd3fc" opacity="0.8"/>
+  <circle cx="118" cy="196" r="3" fill="#c4b5fd" opacity="0.7"/>
+</svg>
